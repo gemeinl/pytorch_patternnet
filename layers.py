@@ -56,7 +56,7 @@ class PatternConv2d(nn.Module):
         '''
         
         def expand_bias(bias, size):
-            new_tensor = torch.zeros((size))
+            new_tensor = torch.zeros((size), device=bias.device)
             for i in range(bias.shape[0]):
                 new_tensor[:, i, :, :] = bias[i]
 
@@ -114,7 +114,8 @@ class PatternConv2d(nn.Module):
 
         if output_wo_bias is None:
             inp_dense, out_dense = patterns._conv_maps_to_dense(input, output,
-                                                                kernel_size)
+                                                                kernel_size, 
+                                                                device=input.device)
             if self.forward_layer.dilation != (1,1):
                 inp_mask = torch.flatten(self.dil_mask(self.forward_layer.weight.shape)[0])
                 inp_dense = inp_dense[:, inp_mask==1]
@@ -122,19 +123,21 @@ class PatternConv2d(nn.Module):
             if self.statistics is None:
                 self.statistics = patterns.compute_statistics(inp_dense, 
                                                               out_dense, 
-                                                              out_dense)
+                                                              out_dense,
+                                                             device=inp_dense.device)
             else:
                 self.statistics = patterns.update_statistics(inp_dense,
                                                              out_dense,
                                                              out_dense,
-                                                             self.statistics)
+                                                             self.statistics,
+                                                            device=inp_dense.device)
 
         else:
             inp_dense, out_wo_bias_dense = patterns._conv_maps_to_dense(input, 
                                             output_wo_bias,
-                                            kernel_size)
+                                            kernel_size, device=input.device)
             _, out_dense = patterns._conv_maps_to_dense(input, output,
-                                        kernel_size)
+                                        kernel_size, device=input.device)
             if self.forward_layer.dilation != (1,1):
                 inp_mask = torch.flatten(self.dil_mask(self.forward_layer.weight.shape)[0])
                 inp_dense = inp_dense[:, inp_mask==1]
@@ -142,12 +145,14 @@ class PatternConv2d(nn.Module):
             if self.statistics is None:
                 self.statistics = patterns.compute_statistics(inp_dense, 
                                                             out_wo_bias_dense, 
-                                                            out_dense)
+                                                            out_dense, 
+                                                              device=inp_dense.device)
             else:
                 self.statistics = patterns.update_statistics(inp_dense,
                                                              out_wo_bias_dense,
                                                              out_dense,
-                                                             self.statistics)
+                                                             self.statistics, 
+                                                             device=inp_dense.device)
         
 
     def compute_patterns(self):

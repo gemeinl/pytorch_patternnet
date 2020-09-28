@@ -297,8 +297,8 @@ def compute_patterns_conv(stats, kernel):
 
     # the kernels have to be reversed along the height and width dimension
     def revert_tensor(tensor, axis=0):
-        idx = [i for i in range(tensor.size(axis) - 1, -1, -1)]
-        idx = torch.LongTensor(idx)
+        idx = torch.arange(tensor.size(axis)-1, -1, -1, device=tensor.device, 
+                           dtype=torch.int64)
         return tensor.index_select(axis, idx)
 
     a_dict["A_linear"] = revert_tensor(a_dict["A_linear"], 2)
@@ -360,11 +360,11 @@ def _rowwise_mul(matrix, other):
     if other.dim() == 0:
         result = matrix * other
     elif other.dim() == 1:
-        result = torch.zeros(matrix.size(), dtype=DTYPE)
+        result = torch.zeros(matrix.size(), dtype=DTYPE, device=matrix.device)
         for i in range(matrix.size()[0]):
             result[i, :] = matrix[i, :] * other[i]
     else:
-        result = torch.zeros(matrix.size()[0], dtype=DTYPE)
+        result = torch.zeros(matrix.size()[0], dtype=DTYPE, device=matrix.device)
         for i in range(matrix.size()[0]):
             result[i] = torch.dot(matrix[i, :], other[i, :])
 
@@ -376,7 +376,7 @@ def _rowwise_div(matrix, vector):
     if vector.dim() == 0:
         return matrix * (1 / vector)
 
-    result = torch.zeros(matrix.size(), dtype=DTYPE)
+    result = torch.zeros(matrix.size(), dtype=DTYPE, device=matrix.device)
     
     for i in range(matrix.size()[0]):
         # if there's a 0 in vector we just set the result
