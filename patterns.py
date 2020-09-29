@@ -158,12 +158,12 @@ def update_statistics(
                                                     + new_stats['linear']['cnt'])
     factor_new_linear = 1 - factor_old_linear
     # for the positive statistics start with zeros to avoid having to divide by zero
-    factor_old_positive = torch.zeros(stats_dict['positive']['cnt'].shape)
+    factor_old_positive = torch.zeros(stats_dict['positive']['cnt'].shape, device=device)
     inds_nonzero = torch.squeeze(stats_dict['positive']['cnt'].nonzero())
     factor_old_positive[inds_nonzero] = stats_dict['positive']['cnt'][inds_nonzero] \
                                         / (stats_dict['positive']['cnt'][inds_nonzero] + \
                                            new_stats['positive']['cnt'][inds_nonzero])
-    factor_new_positive = torch.ones(stats_dict['positive']['cnt'].shape) - \
+    factor_new_positive = torch.ones(stats_dict['positive']['cnt'].shape, device=device) - \
                           factor_old_positive
 
     for param_type in stats_dict:
@@ -427,8 +427,8 @@ def _rowwise_div(matrix, vector):
     weight_matrix_width = k_s[1] * k_s[2] * k_s[3]  # one kernel reshaped
 
     # batch_size at first dimension
-    inp_fc = torch.zeros(i_s[0], num_rows, num_cols)
-    weights = torch.zeros(weight_matrix_height, weight_matrix_width)
+    inp_fc = torch.zeros(i_s[0], num_rows, num_cols, device=inp.device)
+    weights = torch.zeros(weight_matrix_height, weight_matrix_width, device=inp.device)
 
     # now insert all the patches into inp_fc
     col_count = 0

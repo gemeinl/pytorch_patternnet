@@ -45,6 +45,8 @@ class PatternConv2d(nn.Module):
             padding=padding_b,
             bias=False,
         )
+        if next(self.forward_layer.parameters()).is_cuda:
+            self.backward_layer.cuda()
     
         self.statistics = None
         self.patterns = None
@@ -54,7 +56,6 @@ class PatternConv2d(nn.Module):
             output, but also output without bias, if the forward layer has a 
             bias parameter.
         '''
-        
         def expand_bias(bias, size):
             new_tensor = torch.zeros((size), device=bias.device)
             for i in range(bias.shape[0]):
@@ -69,9 +70,7 @@ class PatternConv2d(nn.Module):
             return output
         bias = expand_bias(self.forward_layer.bias.data, output.data.shape)
         output_wo_bias = output - bias
-
         return output, output_wo_bias
-
 
     def backward(self, input, normalize_output=True):
         ''' compute a backward step (for signal computation).
@@ -92,9 +91,7 @@ class PatternConv2d(nn.Module):
                 output.data /= absmax
             output.data[output.data > 1] = 1
             output.data[output.data < -1] = -1
-
         return output
-
 
     def compute_statistics(self, input, output, output_wo_bias=None):
         ''' compute statistics for this layer given the input, output and 
@@ -121,14 +118,14 @@ class PatternConv2d(nn.Module):
                 inp_dense = inp_dense[:, inp_mask==1]
 
             if self.statistics is None:
-                self.statistics = patterns.compute_statistics(inp_dense, 
-                                                              out_dense, 
-                                                              out_dense,
+                self.statistics = patterns.compute_statistics(inp_dense.detach(), 
+                                                              out_dense.detach(), 
+                                                              out_dense.detach(),
                                                              device=inp_dense.device)
             else:
-                self.statistics = patterns.update_statistics(inp_dense,
-                                                             out_dense,
-                                                             out_dense,
+                self.statistics = patterns.update_statistics(inp_dense.detach(),
+                                                             out_dense.detach(),
+                                                             out_dense.detach(),
                                                              self.statistics,
                                                             device=inp_dense.device)
 
@@ -143,17 +140,16 @@ class PatternConv2d(nn.Module):
                 inp_dense = inp_dense[:, inp_mask==1]
  
             if self.statistics is None:
-                self.statistics = patterns.compute_statistics(inp_dense, 
-                                                            out_wo_bias_dense, 
-                                                            out_dense, 
+                self.statistics = patterns.compute_statistics(inp_dense.detach(), 
+                                                            out_wo_bias_dense.detach(), 
+                                                            out_dense.detach(), 
                                                               device=inp_dense.device)
             else:
-                self.statistics = patterns.update_statistics(inp_dense,
-                                                             out_wo_bias_dense,
-                                                             out_dense,
+                self.statistics = patterns.update_statistics(inp_dense.detach(),
+                                                             out_wo_bias_dense.detach(),
+                                                             out_dense.detach(),
                                                              self.statistics, 
                                                              device=inp_dense.device)
-        
 
     def compute_patterns(self):
         ''' Compute patterns from the computed statistics. 
@@ -161,7 +157,6 @@ class PatternConv2d(nn.Module):
         kernel = self.forward_layer.weight.data
         self.patterns = patterns.compute_patterns_conv(self.statistics, 
                                                        kernel)
-
 
     def set_patterns(self, pattern_type='relu'):
         ''' Sets the computed patterns as the kernel of the backward layer.
@@ -194,7 +189,7 @@ class PatternLinear(nn.Module):
         '''
 
         def expand_bias(bias, size):
-            new_tensor = torch.zeros((size))
+            new_tensor = torch.zeros((size), device=bias.device)
             for i in range(bias.shape[0]):
                 new_tensor[:, i] = bias[i]
 
@@ -208,7 +203,6 @@ class PatternLinear(nn.Module):
         output_wo_bias = output - bias
 
         return output, output_wo_bias
-
 
     def backward(self, input, normalize_output=True):
         ''' compute a backward step (for signal computation).
@@ -224,7 +218,6 @@ class PatternLinear(nn.Module):
 
         return output
 
-
     def compute_statistics(self, input, output, output_wo_bias=None):
         ''' compute statistics for this layer given the input, output and 
             output without bias. Initialize statistics if none there yet,
@@ -238,31 +231,33 @@ class PatternLinear(nn.Module):
             if self.statistics is None:
                 self.statistics = patterns.compute_statistics(input, 
                                                               output, 
-                                                              output)
+                                                              output, 
+                                                              device=inp_dense.device)
             else:
                 self.statistics = patterns.update_statistics(input,
                                                              output,
                                                              output,
-                                                             self.statistics)
+                                                             self.statistics, 
+                                                              device=inp_dense.device)
 
         else:
             if self.statistics is None:
                 self.statistics = patterns.compute_statistics(input, 
                                                             output_wo_bias, 
-                                                            output)
+                                                            output, 
+                                                              device=inp_dense.device)
             else:
                 self.statistics = patterns.update_statistics(input,
                                                              output_wo_bias,
                                                              output,
-                                                             self.statistics)
-        
+                                                             self.statistics, 
+                                                              device=inp_dense.device)
 
     def compute_patterns(self):
         ''' Compute patterns from the computed statistics. 
         '''
         w = self.forward_layer.weight.data
         self.patterns = patterns.compute_patterns_linear(self.statistics, w)
-
 
     def set_patterns(self, pattern_type='relu'):
         ''' Sets the computed patterns as the kernel of the backward layer.
@@ -368,4 +363,3 @@ class PatternBatchNorm2d(torch.nn.Module):
         
         return result
         
-    
